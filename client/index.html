@@ -1,22 +1,24 @@
-<html>
-    <head>
-        <title>WebRTC Project</title>
-    </head>
-    <h1>WebRTC Project</h1>
-    <div id="buttons">
-        <input id="roomID" type="text" placeholder="请输入房间ID" maxlength="40">
-        <button id="joinBottom" type="button">加入</button>
-        <button id="leaveBottom" type="button">离开</button>
-    </div>
-    <div id="video">
-        <video id="localVideo" autoplay muted playsinline>本地窗口</video>
-        <video id="remoteVideo" autoplay playsinline>本地窗口</video>
-    </div>
-    <script src="js/main.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title> WebRTC1对1音视频通话 </title>
+    <h1> WebRTC1对1音视频通话 </h1>
+
+
+</head>
+
+<body>
+
+<div id="buttons">
+    <input id="zero-roomId" type="text" placeholder="请输入房间ID" maxlength="40"/>
+    <button id="joinBtn" type="button">加入</button>
+    <button id="leaveBtn" type="button">离开</button>
+</div>
+<div id="videos">
+    <video id="localVideo" autoplay muted playsinline>本地窗口</video>
+    <video id="remoteVideo" autoplay playsinline>远端窗口</video>
+</div>
+<script src="js/main.js"></script>
+</body>
 </html>
-
-
-
-
-
-
