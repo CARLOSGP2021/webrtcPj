@@ -54,6 +54,18 @@ function handleRemoteStreamAdd(event){
     remoteVideo.srcObject = remoteStream;
 }
 
+function handleConnectionStateChange(){
+    if(pc != null){
+        console.info("ConnectionState ->" + pc.connectionState)
+    }
+}
+
+function handleIceConnectionStateChange(){
+    if(pc != null){
+        console.info("IceConnectionState ->" + pc.iceConnectionState)
+    }
+}
+
 function createPeerConnection() {
     var defaultConfiguration = {
         bundlePolicy: "max-bundle",
@@ -63,20 +75,20 @@ function createPeerConnection() {
         iceServers: [
             {
                 "urls": [
-                    "turn:公网ip/域名?transport=udp",
-                    "turn:公网ip/域名?transport=tcp"       // 可以插入多个进行备选
+                    "turn:10.23.57.14:3478?transport=udp",
+                    "turn:10.23.57.14:3478?transport=tcp"       // 可以插入多个进行备选
                 ],
-                "username": "test",  // coturn 设置的
+                "username": "lqf",  // coturn 设置的
                 "credential": "123456"
             },
             {
                 "urls": [
-                    "stun:公网ip/域名"
+                    "stun:10.23.57.14:3478"
                 ]
             }
         ]
     };
-    pc = new RTCPeerConnection(null);
+    pc = new RTCPeerConnection(defaultConfiguration);
     pc.onicecandidate = handleIceCandidate;  //回调Candidate 函数
     pc.ontrack = handleRemoteStreamAdd;		//回调处理远端流的函数
     pc.onconnectionstatechange = handleConnectionStateChange;
