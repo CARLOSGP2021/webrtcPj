@@ -99,7 +99,7 @@ function handleJoin(message, conn) {
     if(roomMap.size() >= 2) {
         console.error("roomId:" + roomId + " 已经有两人存在，请使用其他房间");
         // 加信令通知客户端，房间已满
-        return;
+        return null;
     }
 
     var client = new Client(uid, conn, roomId);
@@ -129,6 +129,7 @@ function handleJoin(message, conn) {
             }
         }
     }
+    return client;
 }
 
 function handleLeave(message) {
@@ -161,6 +162,123 @@ function handleLeave(message) {
     }
 }
 
+function handleForceLeave(client){
+    var roomId = message.roomId;
+    var uid = message.uid;
+
+    console.info("uid: " + uid + "Force leave room " + roomId);
+    //查房间号
+    var roomMap = roomTableMap.get(roomId);
+    if (roomMap == null) {
+        console.error("handleLeave can't find then roomId " + roomId);
+        return;
+    }
+    //查用户是否在房间
+    if(!roomMap.contains(uid)){
+        console.info("uid: " + uid + "have left room " + roomId)
+    }
+    console.info("uid: " + uid + "Force leave room " + roomId);
+    roomMap.remove(uid);        // 删除发送者
+    if(roomMap.size() >= 1) {
+        var clients = roomMap.getEntrys();
+        for(var i in clients) {
+            var jsonMsg = {
+                'cmd': 'peer-leave',
+                'remoteUid': uid // 谁离开就填写谁
+            };
+            var msg = JSON.stringify(jsonMsg);
+            var remoteUid = clients[i].key;
+            var remoteClient = roomMap.get(remoteUid);
+            if(remoteClient) {
+                console.info("notify peer:" + remoteClient.uid + ", uid:" + uid + " leave");
+                remoteClient.conn.sendText(msg);
+            }
+        }
+    }
+}
+
+function handleOffer(message) {
+    var roomId = message.roomId;
+    var uid = message.uid;
+    var remoteUid = message.remoteUid;
+
+    console.info("handleOffer uid: " + uid + "transfer  offer  to remoteUid" + remoteUid);
+	// 找房间
+    var roomMap = roomTableMap.get(roomId);
+    if (roomMap == null) {
+        console.error("handleOffer can't find then roomId " + roomId);
+        return;
+    }
+	// 找人
+    if(roomMap.get(uid) == null) {
+        console.error("handleOffer can't find then uid " + uid);
+        return;
+    }
+	// 找到以后发送
+    var remoteClient = roomMap.get(remoteUid);
+    if(remoteClient) {
+        var msg = JSON.stringify(message);
+        remoteClient.conn.sendText(msg);
+    } else {
+        console.error("can't find remoteUid： " + remoteUid);
+    }
+}
+
+function handleAnswer(message) {
+    var roomId = message.roomId;
+    var uid = message.uid;
+    var remoteUid = message.remoteUid;
+
+    console.info("handleAnswer uid: " + uid + "transfer answer  to remoteUid" + remoteUid);
+
+    var roomMap = roomTableMap.get(roomId);
+    if (roomMap == null) {
+        console.error("handleAnswer can't find then roomId " + roomId);
+        return;
+    }
+
+    if(roomMap.get(uid) == null) {
+        console.error("handleAnswer can't find then uid " + uid);
+        return;
+    }
+
+    var remoteClient = roomMap.get(remoteUid);
+    if(remoteClient) {
+        var msg = JSON.stringify(message);
+        remoteClient.conn.sendText(msg);
+    } else {
+        console.error("can't find remoteUid： " + remoteUid);
+    }
+}
+
+function handleCandidate(message) {
+    var roomId = message.roomId;
+    var uid = message.uid;
+    var remoteUid = message.remoteUid;
+
+    console.info("handleAnswer uid: " + uid + "transfer candidate  to remoteUid" + remoteUid);
+
+    var roomMap = roomTableMap.get(roomId);
+    if (roomMap == null) {
+        console.error("handleAnswer can't find then roomId " + roomId);
+        return;
+    }
+
+    if(roomMap.get(uid) == null) {
+        console.error("handleAnswer can't find then uid " + uid);
+        return;
+    }
+
+    var remoteClient = roomMap.get(remoteUid);
+    if(remoteClient) {
+        var msg = JSON.stringify(message);
+        remoteClient.conn.sendText(msg);
+    } else {
+        console.error("can't find remoteUid： " + remoteUid);
+    }
+}
+
+
 var server = ws.createServer(function(conn){
     console.log("--------创建一个新的连接--------")
     conn.sendText("我收到你的连接了....");
@@ -170,22 +288,32 @@ var server = ws.createServer(function(conn){
 
         switch (jsonMsg.cmd) {
             case SIGNAL_TYPE_JOIN:
-                handleJoin(jsonMsg, conn);
+                conn.client = handleJoin(jsonMsg, conn);
             break;
             case SIGNAL_TYPE_LEAVE:
                 handleLeave(jsonMsg);
                 break;
+            case SIGNAL_TYPE_OFFER:
+                handleOffer(jsonMsg);
+                break;
+            case SIGNAL_TYPE_ANSWER:
+                handleAnswer(jsonMsg);
+                break;
+            case SIGNAL_TYPE_CANDIDATE:
+                handleCandidate(jsonMsg);
+                break;
         }
-
     });
 
     conn.on("close", function(code, reason) {
         console.info("连接关闭 code: " + code + ", reason: " + reason);
-        
+        if(conn.client != null){
+            //强制让客户端从房间退出
+            handleForceLeave(client);
+        }
     });
 
     conn.on("error", function(err) {
         console.info("监听到错误:" + err);
     });
 }).listen(prort);
-

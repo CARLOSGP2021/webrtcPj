@@ -76,14 +76,14 @@ function createPeerConnection() {
             }
         ]
     };
- 
-    pc = new RTCPeerConnection(defaultConfiguration);
+    pc = new RTCPeerConnection(null);
     pc.onicecandidate = handleIceCandidate;  //回调Candidate 函数
     pc.ontrack = handleRemoteStreamAdd;		//回调处理远端流的函数
     pc.onconnectionstatechange = handleConnectionStateChange;
     pc.oniceconnectionstatechange = handleIceConnectionStateChange
 
-    localStream.getTracks().forEach((track) => pc.addTrack(track, localStream)); // 给video本地的绑定本地流 中的对应轨  WebRtc不同于ffmpeg一流可以多轨  一轨== 一个音视频ffmpeg流那种
+    localStream.getTracks().forEach((track) => pc.addTrack(track, localStream)); 
+    // 给video本地的绑定本地流 中的对应轨  WebRtc不同于ffmpeg一流可以多轨  一轨== 一个音视频ffmpeg流那种
 }
 
 function createOfferAndSendMessage(session) {
@@ -150,7 +150,14 @@ ZeroRTCEngine.prototype.onOpen = function() {
 ZeroRTCEngine.prototype.onMessage = function(event) {
     console.log("onMessage: " + event.data);
 
-    var jsonMsg = JSON.parse(event.data);
+    var jsonMsg = null;
+    try{
+        jsonMsg = JSON.parse(event.data);
+    }catch(e){
+        console.warn("onMessage parse Json failed: " + e);
+        return;
+    }
+
     switch(jsonMsg.cmd) {
         case SIGNAL_TYPE_NEW_PEER:
             handleRemoteNewPeer(jsonMsg);
@@ -194,6 +201,10 @@ function handleResponseJoin(message) {
 function handleRemotePeerLeave(message) {
     console.info("handleRemotePeerLeave, remoteUid: " + message.remoteUid);
     remoteVideo.srcObject = null;
+    if(pc != null){
+        pc.close();
+        pc = null;
+    }
 }
 
 function handleRemoteNewPeer(message) {
@@ -202,12 +213,90 @@ function handleRemoteNewPeer(message) {
     doOffer();
 }
 
+function handleRemoteOffer(message) {
+    console.info("handleRemoteOffer");
+    if(pc == null) {
+        createPeerConnection();
+    }
+    var desc = JSON.parse(message.msg);
+    pc.setRemoteDescription(desc);
+    doAnswer();
+}
+
+function handleRemoteAnswer(message) {
+    console.info("handleRemoteAnswer");
+    var desc = JSON.parse(message.msg);
+    pc.setRemoteDescription(desc);
+}
+
+function handleRemoteCandidate(message) {
+    console.info("handleRemoteCandidate");
+    var candidate = JSON.parse(message.msg);
+    pc.addIceCandidate(candidate).catch(e => {
+        console.error("addIceCandidate failed:" + e.name);
+    });
+}
+
+function handleIceCandidate(event) {
+    console.info("handleIceCandidate");
+    if (event.candidate) {
+        var jsonMsg = {
+            'cmd': 'candidate',
+            'roomId': roomId,
+            'uid': localUserId,
+            'remoteUid': remoteUserId,
+            'msg': JSON.stringify(event.candidate)
+        };
+        var message = JSON.stringify(jsonMsg);
+        zeroRTCEngine.sendMessage(message);
+        // console.info("handleIceCandidate message: " + message);
+        console.info("send candidate message");
+    } else {
+        console.warn("End of candidates");
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
 function doOffer() {
     // 创建RTCPeerConnection
     if (pc == null) {
         createPeerConnection();
     }
     pc.createOffer().then(createOfferAndSendMessage).catch(handleCreateOfferError);
+}
+
+function doAnswer() {
+    pc.createAnswer().then(createAnswerAndSendMessage).catch(handleCreateAnswerError);
+}
+function createAnswerAndSendMessage(session) {
+    pc.setLocalDescription(session)
+        .then(function () {
+            var jsonMsg = {
+                'cmd': 'answer',
+                'roomId': roomId,
+                'uid': localUserId,
+                'remoteUid': remoteUserId,
+                'msg': JSON.stringify(session)
+            };
+            var message = JSON.stringify(jsonMsg);
+            zeroRTCEngine.sendMessage(message);
+            // console.info("send answer message: " + message);
+            console.info("send answer message");
+        })
+        .catch(function (error) {
+            console.error("answer setLocalDescription failed: " + error);
+        });
+
 }
 
 function doJoin(roomId) {
@@ -230,7 +319,27 @@ function doLeave() {
     var message = JSON.stringify(jsonMsg);
     zeroRTCEngine.sendMessage(message);
     console.info("doLeave message: " + message);
+    hangup();
 }
+
+function hangup(){
+    localVideo.srcObject = null;
+    remoteVideo.srcObject = null;
+    closeLocalStream();
+    if(pc != null){
+        pc.close(); // 关闭RTCpeerConnection
+        pc = null;
+    }
+}
+
+function closeLocalStream(){
+    if(localStream != null){
+        localStream.getTracks().forEach((track) =>{
+            track.stop();
+        });
+    }
+}
+
 function openLocalStream(stream) {
     console.log('Open local stream');
     doJoin(roomId);
@@ -250,7 +359,7 @@ function initLocalStream() {
     });
 }
 
-zeroRTCEngine = new ZeroRTCEngine("ws://10.23.57.12:8099");
+zeroRTCEngine = new ZeroRTCEngine("ws://10.23.57.14:8099");
 zeroRTCEngine.createWebsocket();
 
 document.getElementById('joinBtn').onclick = function() {
