@@ -75,15 +75,15 @@ function createPeerConnection() {
         iceServers: [
             {
                 "urls": [
-                    "turn:10.23.57.14:3478?transport=udp",
-                    "turn:10.23.57.14:3478?transport=tcp"       // 可以插入多个进行备选
+                    "turn:112.65.118.2:3478?transport=udp",
+                    "turn:112.65.118.2:3478?transport=tcp"       // 可以插入多个进行备选
                 ],
                 "username": "lqf",  // coturn 设置的
                 "credential": "123456"
             },
             {
                 "urls": [
-                    "stun:10.23.57.14:3478"
+                    "stun:112.65.118.2:3478"
                 ]
             }
         ]
@@ -371,7 +371,7 @@ function initLocalStream() {
     });
 }
 
-zeroRTCEngine = new ZeroRTCEngine("ws://10.23.57.14:8099");
+zeroRTCEngine = new ZeroRTCEngine("ws://112.65.118.2:8099");
 zeroRTCEngine.createWebsocket();
 
 document.getElementById('joinBtn').onclick = function() {
